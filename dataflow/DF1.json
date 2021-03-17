@@ -1,0 +1,45 @@
+{
+	"name": "DF1",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "DS_ADLTxt",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				},
+				{
+					"dataset": {
+						"referenceName": "DS_AzureSQLDB",
+						"type": "DatasetReference"
+					},
+					"name": "source2"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "DS_AzureSQLDB",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "DerivedColumn1"
+				},
+				{
+					"name": "Lookup1"
+				},
+				{
+					"name": "ConditionalSplit1"
+				}
+			],
+			"script": "source(output(\n\t\tPersonID as string,\n\t\tLastName as string,\n\t\tFirstName as string,\n\t\tAddress as string,\n\t\tCity as string\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tignoreNoFilesFound: false) ~> source1\nsource(output(\n\t\tPersonID as integer,\n\t\tLastName as string,\n\t\tFirstName as string,\n\t\tAddress as string,\n\t\tCity as string,\n\t\tHash as integer,\n\t\tLastUpdatedDt as string\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tignoreNoFilesFound: false,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tformat: 'table') ~> source2\nsource1 derive(Hash = toBinary(md5(LastName+FirstName+Address)),\n\t\tLastUpdatedDt = currentDate(),\n\t\tPID = toInteger(PersonID)) ~> DerivedColumn1\nDerivedColumn1, source2 lookup(PID == source2@PersonID,\n\tmultiple: false,\n\tpickup: 'any',\n\tbroadcast: 'auto')~> Lookup1\nLookup1 split(isNull(source2@PersonID),\n\tdisjoint: false) ~> ConditionalSplit1@(Insert)\nConditionalSplit1@Insert sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:true,\n\tupdateable:false,\n\tupsertable:false,\n\tformat: 'table',\n\tmapColumn(\n\t\tPersonID = ConditionalSplit1@PersonID,\n\t\tLastName = ConditionalSplit1@LastName,\n\t\tFirstName = ConditionalSplit1@FirstName,\n\t\tAddress = ConditionalSplit1@Address,\n\t\tCity = ConditionalSplit1@City,\n\t\tHash = ConditionalSplit1@Hash,\n\t\tLastUpdatedDt = ConditionalSplit1@LastUpdatedDt\n\t),\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\terrorHandlingOption: 'stopOnFirstError') ~> sink1"
+		}
+	}
+}

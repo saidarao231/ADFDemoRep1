@@ -1,0 +1,68 @@
+{
+	"name": "dataflow1",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "DS_ADLTxt",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				},
+				{
+					"dataset": {
+						"referenceName": "DS_AzureSQLDB",
+						"type": "DatasetReference"
+					},
+					"name": "source2"
+				},
+				{
+					"dataset": {
+						"referenceName": "DS_AzureSQLDB_2",
+						"type": "DatasetReference"
+					},
+					"name": "source3"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "DS_AzureSQLDB",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				},
+				{
+					"dataset": {
+						"referenceName": "DS_AzureSQLDB",
+						"type": "DatasetReference"
+					},
+					"name": "sink2"
+				}
+			],
+			"transformations": [
+				{
+					"name": "Exists1"
+				},
+				{
+					"name": "Exists2"
+				},
+				{
+					"name": "AlterRow1"
+				},
+				{
+					"name": "SurrogateKey1"
+				},
+				{
+					"name": "Join1"
+				},
+				{
+					"name": "DerivedColumn1"
+				}
+			],
+			"script": "source(output(\n\t\tPersonID as string,\n\t\tLastName as string,\n\t\tFirstName as string,\n\t\tAddress as string,\n\t\tCity as string\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tignoreNoFilesFound: false) ~> source1\nsource(output(\n\t\tPersonID as string,\n\t\tLastName as string,\n\t\tFirstName as string,\n\t\tAddress as string,\n\t\tCity as string\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tignoreNoFilesFound: false,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tformat: 'table') ~> source2\nsource(output(\n\t\tMaxSNo as integer\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tignoreNoFilesFound: false,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tquery: 'select Max(SNo) as MaxSNo from [dbo].[Persons]',\n\tformat: 'query') ~> source3\nsource1, source2 exists(source1@PersonID == source2@PersonID,\n\tnegate:true,\n\tbroadcast: 'auto')~> Exists1\nsource1, source2 exists(source1@PersonID == source2@PersonID,\n\tnegate:false,\n\tbroadcast: 'auto')~> Exists2\nExists2 alterRow(updateIf(true())) ~> AlterRow1\nJoin1 keyGenerate(output(SKey as long),\n\tstartAt: 1L) ~> SurrogateKey1\nExists1, source3 join(1==1,\n\tjoinType:'cross',\n\tbroadcast: 'auto')~> Join1\nSurrogateKey1 derive(Key = MaxSNo + SKey) ~> DerivedColumn1\nDerivedColumn1 sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:true,\n\tupdateable:false,\n\tupsertable:false,\n\tformat: 'table',\n\tmapColumn(\n\t\teach(match(type=='string')),\n\t\teach(match(name=='Key'),\n\t\t\t'SNo' = $$)\n\t),\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\terrorHandlingOption: 'stopOnFirstError') ~> sink1\nAlterRow1 sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:true,\n\tupdateable:true,\n\tupsertable:false,\n\tkeys:['PersonID'],\n\tformat: 'table',\n\tmapColumn(\n\t\tPersonID,\n\t\tLastName,\n\t\tFirstName,\n\t\tAddress,\n\t\tCity\n\t),\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\terrorHandlingOption: 'stopOnFirstError') ~> sink2"
+		}
+	}
+}

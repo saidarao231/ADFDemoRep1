@@ -1,0 +1,90 @@
+{
+	"name": "dataflow2",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "DS_ADLTxt",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				},
+				{
+					"dataset": {
+						"referenceName": "DS_AzureSQLDB",
+						"type": "DatasetReference"
+					},
+					"name": "source2"
+				},
+				{
+					"dataset": {
+						"referenceName": "DS_AzureSQLDB_2",
+						"type": "DatasetReference"
+					},
+					"name": "source3"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "DS_AzureSQLDB",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				},
+				{
+					"dataset": {
+						"referenceName": "DS_AzureSQLDB",
+						"type": "DatasetReference"
+					},
+					"name": "sink2"
+				},
+				{
+					"dataset": {
+						"referenceName": "DS_AzureSQLDB",
+						"type": "DatasetReference"
+					},
+					"name": "sink3"
+				}
+			],
+			"transformations": [
+				{
+					"name": "Lookup1"
+				},
+				{
+					"name": "ConditionalSplit1"
+				},
+				{
+					"name": "DerivedColumn1"
+				},
+				{
+					"name": "SurrogateKey1"
+				},
+				{
+					"name": "Select1"
+				},
+				{
+					"name": "DerivedColumn2"
+				},
+				{
+					"name": "Filter1"
+				},
+				{
+					"name": "Select2"
+				},
+				{
+					"name": "Join1"
+				},
+				{
+					"name": "DerivedColumn3"
+				},
+				{
+					"name": "AlterRow1"
+				}
+			],
+			"script": "source(output(\n\t\tPersonID as string,\n\t\tLastName as string,\n\t\tFirstName as string,\n\t\tLastUpdatedDt as date\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tignoreNoFilesFound: false) ~> source1\nsource(output(\n\t\tPersonID as string,\n\t\tLastName as string,\n\t\tFirstName as string,\n\t\tSNo as integer,\n\t\tLastUpdatedDt as date,\n\t\tIsActive as integer\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tignoreNoFilesFound: false,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tformat: 'table') ~> source2\nsource(output(\n\t\tMaxSNo as integer\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tignoreNoFilesFound: false,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tquery: 'Select Max(SNo) MaxSNo from [dbo].[Persons]',\n\tformat: 'query') ~> source3\nJoin1, Select2 lookup(PersonID == PersonID_Sink,\n\tmultiple: false,\n\tpickup: 'any',\n\tbroadcast: 'auto')~> Lookup1\nLookup1 split(isNull(PersonID_Sink),\n\tdisjoint: false) ~> ConditionalSplit1@(New, Update)\nConditionalSplit1@New derive(IsActive_Sink = 1) ~> DerivedColumn1\nSelect1 keyGenerate(output(SKey as long),\n\tstartAt: 1L) ~> SurrogateKey1\nDerivedColumn1 select(mapColumn(\n\t\tPersonID,\n\t\tLastName,\n\t\tFirstName,\n\t\tLastUpdatedDt,\n\t\tMaxSNo,\n\t\tPersonID_Sink,\n\t\tLastName_Sink,\n\t\tFirstName_Sink,\n\t\tSNo_Sink,\n\t\tLastUpdatedDt_Sink,\n\t\tIsActive_Sink\n\t),\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true) ~> Select1\nConditionalSplit1@Update derive(IsActive_Sink = 1) ~> DerivedColumn2\nConditionalSplit1@Update filter(SNo_Sink <= MaxSNo) ~> Filter1\nsource2 select(mapColumn(\n\t\tPersonID_Sink = PersonID,\n\t\tLastName_Sink = LastName,\n\t\tFirstName_Sink = FirstName,\n\t\tSNo_Sink = SNo,\n\t\tLastUpdatedDt_Sink = LastUpdatedDt,\n\t\tIsActive_Sink = IsActive\n\t),\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true) ~> Select2\nsource1, source3 join(true(),\n\tjoinType:'cross',\n\tbroadcast: 'auto')~> Join1\nFilter1 derive(IsActive_Sink = 0) ~> DerivedColumn3\nDerivedColumn3 alterRow(updateIf(SNo_Sink<=MaxSNo)) ~> AlterRow1\nSurrogateKey1 sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:true,\n\tupdateable:false,\n\tupsertable:false,\n\tformat: 'table',\n\tmapColumn(\n\t\teach(match(type=='string')),\n\t\teach(match(type=='date')),\n\t\teach(match(name=='IsActive_Sink'),\n\t\t\t'IsActive' = $$),\n\t\teach(match(name=='SKey'),\n\t\t\t'SNo' = $$)\n\t),\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\terrorHandlingOption: 'stopOnFirstError') ~> sink1\nDerivedColumn2 sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:true,\n\tupdateable:false,\n\tupsertable:false,\n\tformat: 'table',\n\tmapColumn(\n\t\tPersonID,\n\t\tLastName,\n\t\tFirstName,\n\t\tLastUpdatedDt,\n\t\tMaxSNo,\n\t\tPersonID_Sink,\n\t\tLastName_Sink,\n\t\tFirstName_Sink,\n\t\tSNo_Sink,\n\t\tLastUpdatedDt_Sink,\n\t\tIsActive_Sink\n\t),\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\terrorHandlingOption: 'stopOnFirstError') ~> sink2\nAlterRow1 sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:true,\n\tupdateable:true,\n\tupsertable:false,\n\tkeys:['PersonID_Sink'],\n\tformat: 'table',\n\tmapColumn(\n\t\tPersonID,\n\t\tLastName,\n\t\tFirstName,\n\t\tLastUpdatedDt,\n\t\tMaxSNo,\n\t\tPersonID_Sink,\n\t\tLastName_Sink,\n\t\tFirstName_Sink,\n\t\tSNo_Sink,\n\t\tLastUpdatedDt_Sink,\n\t\tIsActive_Sink\n\t),\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\terrorHandlingOption: 'stopOnFirstError') ~> sink3"
+		}
+	}
+}
