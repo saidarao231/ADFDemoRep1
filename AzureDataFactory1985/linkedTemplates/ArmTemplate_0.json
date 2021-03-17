@@ -130,7 +130,7 @@
 				"schema": [],
 				"typeProperties": {
 					"schema": "dbo",
-					"table": "Persons"
+					"table": "Emp"
 				}
 			},
 			"dependsOn": [
