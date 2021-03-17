@@ -10,8 +10,8 @@
 		"typeProperties": {
 			"location": {
 				"type": "AzureBlobFSLocation",
-				"fileName": "Persons.txt",
-				"folderPath": "Source",
+				"fileName": "Person",
+				"folderPath": "Sink",
 				"fileSystem": "cont1985"
 			},
 			"columnDelimiter": ",",
