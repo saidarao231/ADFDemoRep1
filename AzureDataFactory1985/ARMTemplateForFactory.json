@@ -1,0 +1,982 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "AzureDataFactory1985"
+		},
+		"LS_ADL_accountKey": {
+			"type": "secureString",
+			"metadata": "Secure string for 'accountKey' of 'LS_ADL'"
+		},
+		"LS_AzureSQLDB_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'LS_AzureSQLDB'"
+		},
+		"LS_AzureSqlDatabase1_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'LS_AzureSqlDatabase1'"
+		},
+		"LS_ADL_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://stgaccnt1985.dfs.core.windows.net"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/pipeline1')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Copy data1",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "DelimitedTextSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							},
+							"sink": {
+								"type": "AzureSqlSink",
+								"tableOption": "autoCreate"
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_ADLTxt",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_AzureSQLDB",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					},
+					{
+						"name": "Copy data2",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "Copy data1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "DelimitedTextSource",
+								"additionalColumns": [
+									{
+										"name": "RowsRead",
+										"value": {
+											"value": "@activity('Copy data1').output.rowsRead",
+											"type": "Expression"
+										}
+									},
+									{
+										"name": "RowsCopied",
+										"value": {
+											"value": "@activity('Copy data1').output.rowsCopied",
+											"type": "Expression"
+										}
+									},
+									{
+										"name": "PipelineRun",
+										"value": {
+											"value": "@pipeline().TriggerTime",
+											"type": "Expression"
+										}
+									}
+								],
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							},
+							"sink": {
+								"type": "DelimitedTextSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "DelimitedTextWriteSettings",
+									"quoteAllText": true,
+									"fileExtension": ".txt"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "RowsRead",
+											"type": "String"
+										},
+										"sink": {
+											"name": "Read",
+											"physicalType": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "RowsCopied",
+											"type": "String"
+										},
+										"sink": {
+											"name": "Copy",
+											"physicalType": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "PipelineRun",
+											"type": "String"
+										},
+										"sink": {
+											"name": "Time",
+											"physicalType": "String"
+										}
+									}
+								],
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_ADLTxt",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_Txt1",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					}
+				],
+				"annotations": [],
+				"lastPublishTime": "2021-03-12T02:20:11Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/DS_ADLTxt')]",
+				"[concat(variables('factoryId'), '/datasets/DS_AzureSQLDB')]",
+				"[concat(variables('factoryId'), '/datasets/DS_Txt1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pipeline2')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "DF1",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "DF1",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"source1": {},
+									"source2": {},
+									"sink1": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"annotations": [],
+				"lastPublishTime": "2021-03-12T04:22:47Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/DF1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pipeline3')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "dataflow1",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "dataflow1",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"source1": {},
+									"source2": {},
+									"source3": {},
+									"sink1": {},
+									"sink2": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"annotations": [],
+				"lastPublishTime": "2021-03-15T09:21:26Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/dataflow1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pipeline4')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "dataflow2",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "dataflow2",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"source1": {},
+									"source2": {},
+									"source3": {},
+									"sink1": {},
+									"sink2": {},
+									"sink3": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"annotations": [],
+				"lastPublishTime": "2021-03-16T06:15:10Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/dataflow2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pipeline5')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "dataflow3",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "dataflow3",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"source1": {},
+									"source2": {},
+									"source3": {},
+									"sink1": {},
+									"sink2": {},
+									"sink3": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"annotations": [],
+				"lastPublishTime": "2021-03-16T15:09:52Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/dataflow3')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_ADLTxt')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_ADL",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": "Persons.txt",
+						"folderPath": "Source",
+						"fileSystem": "cont1985"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": [
+					{
+						"type": "String"
+					},
+					{
+						"type": "String"
+					},
+					{
+						"type": "String"
+					},
+					{
+						"type": "String"
+					},
+					{
+						"type": "String"
+					}
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_ADL')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_AzureSQLDB')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSQLDB",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "Persons"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_AzureSQLDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_AzureSQLDB_2')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSQLDB",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "PersonID",
+						"type": "nvarchar"
+					},
+					{
+						"name": "LastName",
+						"type": "nvarchar"
+					},
+					{
+						"name": "FirstName",
+						"type": "nvarchar"
+					},
+					{
+						"name": "Address",
+						"type": "nvarchar"
+					},
+					{
+						"name": "City",
+						"type": "nvarchar"
+					},
+					{
+						"name": "SNo",
+						"type": "int",
+						"precision": 10
+					}
+				],
+				"typeProperties": {}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_AzureSQLDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_Txt1')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_ADL",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": "Person",
+						"folderPath": "Sink",
+						"fileSystem": "cont1985"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_ADL')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/LS_ADL')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('LS_ADL_properties_typeProperties_url')]",
+					"accountKey": {
+						"type": "SecureString",
+						"value": "[parameters('LS_ADL_accountKey')]"
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/LS_AzureSQLDB')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureSqlDatabase",
+				"typeProperties": {
+					"connectionString": "[parameters('LS_AzureSQLDB_connectionString')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/LS_AzureSqlDatabase1')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureSqlDatabase",
+				"typeProperties": {
+					"connectionString": "[parameters('LS_AzureSqlDatabase1_connectionString')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DF1')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "DS_ADLTxt",
+								"type": "DatasetReference"
+							},
+							"name": "source1"
+						},
+						{
+							"dataset": {
+								"referenceName": "DS_AzureSQLDB",
+								"type": "DatasetReference"
+							},
+							"name": "source2"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "DS_AzureSQLDB",
+								"type": "DatasetReference"
+							},
+							"name": "sink1"
+						}
+					],
+					"transformations": [
+						{
+							"name": "DerivedColumn1"
+						},
+						{
+							"name": "Lookup1"
+						},
+						{
+							"name": "ConditionalSplit1"
+						}
+					],
+					"script": "source(output(\n\t\tPersonID as string,\n\t\tLastName as string,\n\t\tFirstName as string,\n\t\tAddress as string,\n\t\tCity as string\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tignoreNoFilesFound: false) ~> source1\nsource(output(\n\t\tPersonID as integer,\n\t\tLastName as string,\n\t\tFirstName as string,\n\t\tAddress as string,\n\t\tCity as string,\n\t\tHash as integer,\n\t\tLastUpdatedDt as string\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tignoreNoFilesFound: false,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tformat: 'table') ~> source2\nsource1 derive(Hash = toBinary(md5(LastName+FirstName+Address)),\n\t\tLastUpdatedDt = currentDate(),\n\t\tPID = toInteger(PersonID)) ~> DerivedColumn1\nDerivedColumn1, source2 lookup(PID == source2@PersonID,\n\tmultiple: false,\n\tpickup: 'any',\n\tbroadcast: 'auto')~> Lookup1\nLookup1 split(isNull(source2@PersonID),\n\tdisjoint: false) ~> ConditionalSplit1@(Insert)\nConditionalSplit1@Insert sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:true,\n\tupdateable:false,\n\tupsertable:false,\n\tformat: 'table',\n\tmapColumn(\n\t\tPersonID = ConditionalSplit1@PersonID,\n\t\tLastName = ConditionalSplit1@LastName,\n\t\tFirstName = ConditionalSplit1@FirstName,\n\t\tAddress = ConditionalSplit1@Address,\n\t\tCity = ConditionalSplit1@City,\n\t\tHash = ConditionalSplit1@Hash,\n\t\tLastUpdatedDt = ConditionalSplit1@LastUpdatedDt\n\t),\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\terrorHandlingOption: 'stopOnFirstError') ~> sink1"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/DS_ADLTxt')]",
+				"[concat(variables('factoryId'), '/datasets/DS_AzureSQLDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dataflow1')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "DS_ADLTxt",
+								"type": "DatasetReference"
+							},
+							"name": "source1"
+						},
+						{
+							"dataset": {
+								"referenceName": "DS_AzureSQLDB",
+								"type": "DatasetReference"
+							},
+							"name": "source2"
+						},
+						{
+							"dataset": {
+								"referenceName": "DS_AzureSQLDB_2",
+								"type": "DatasetReference"
+							},
+							"name": "source3"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "DS_AzureSQLDB",
+								"type": "DatasetReference"
+							},
+							"name": "sink1"
+						},
+						{
+							"dataset": {
+								"referenceName": "DS_AzureSQLDB",
+								"type": "DatasetReference"
+							},
+							"name": "sink2"
+						}
+					],
+					"transformations": [
+						{
+							"name": "Exists1"
+						},
+						{
+							"name": "Exists2"
+						},
+						{
+							"name": "AlterRow1"
+						},
+						{
+							"name": "SurrogateKey1"
+						},
+						{
+							"name": "Join1"
+						},
+						{
+							"name": "DerivedColumn1"
+						}
+					],
+					"script": "source(output(\n\t\tPersonID as string,\n\t\tLastName as string,\n\t\tFirstName as string,\n\t\tAddress as string,\n\t\tCity as string\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tignoreNoFilesFound: false) ~> source1\nsource(output(\n\t\tPersonID as string,\n\t\tLastName as string,\n\t\tFirstName as string,\n\t\tAddress as string,\n\t\tCity as string\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tignoreNoFilesFound: false,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tformat: 'table') ~> source2\nsource(output(\n\t\tMaxSNo as integer\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tignoreNoFilesFound: false,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tquery: 'select Max(SNo) as MaxSNo from [dbo].[Persons]',\n\tformat: 'query') ~> source3\nsource1, source2 exists(source1@PersonID == source2@PersonID,\n\tnegate:true,\n\tbroadcast: 'auto')~> Exists1\nsource1, source2 exists(source1@PersonID == source2@PersonID,\n\tnegate:false,\n\tbroadcast: 'auto')~> Exists2\nExists2 alterRow(updateIf(true())) ~> AlterRow1\nJoin1 keyGenerate(output(SKey as long),\n\tstartAt: 1L) ~> SurrogateKey1\nExists1, source3 join(1==1,\n\tjoinType:'cross',\n\tbroadcast: 'auto')~> Join1\nSurrogateKey1 derive(Key = MaxSNo + SKey) ~> DerivedColumn1\nDerivedColumn1 sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:true,\n\tupdateable:false,\n\tupsertable:false,\n\tformat: 'table',\n\tmapColumn(\n\t\teach(match(type=='string')),\n\t\teach(match(name=='Key'),\n\t\t\t'SNo' = $$)\n\t),\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\terrorHandlingOption: 'stopOnFirstError') ~> sink1\nAlterRow1 sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:true,\n\tupdateable:true,\n\tupsertable:false,\n\tkeys:['PersonID'],\n\tformat: 'table',\n\tmapColumn(\n\t\tPersonID,\n\t\tLastName,\n\t\tFirstName,\n\t\tAddress,\n\t\tCity\n\t),\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\terrorHandlingOption: 'stopOnFirstError') ~> sink2"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/DS_ADLTxt')]",
+				"[concat(variables('factoryId'), '/datasets/DS_AzureSQLDB')]",
+				"[concat(variables('factoryId'), '/datasets/DS_AzureSQLDB_2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dataflow2')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "DS_ADLTxt",
+								"type": "DatasetReference"
+							},
+							"name": "source1"
+						},
+						{
+							"dataset": {
+								"referenceName": "DS_AzureSQLDB",
+								"type": "DatasetReference"
+							},
+							"name": "source2"
+						},
+						{
+							"dataset": {
+								"referenceName": "DS_AzureSQLDB_2",
+								"type": "DatasetReference"
+							},
+							"name": "source3"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "DS_AzureSQLDB",
+								"type": "DatasetReference"
+							},
+							"name": "sink1"
+						},
+						{
+							"dataset": {
+								"referenceName": "DS_AzureSQLDB",
+								"type": "DatasetReference"
+							},
+							"name": "sink2"
+						},
+						{
+							"dataset": {
+								"referenceName": "DS_AzureSQLDB",
+								"type": "DatasetReference"
+							},
+							"name": "sink3"
+						}
+					],
+					"transformations": [
+						{
+							"name": "Lookup1"
+						},
+						{
+							"name": "ConditionalSplit1"
+						},
+						{
+							"name": "DerivedColumn1"
+						},
+						{
+							"name": "SurrogateKey1"
+						},
+						{
+							"name": "Select1"
+						},
+						{
+							"name": "DerivedColumn2"
+						},
+						{
+							"name": "Filter1"
+						},
+						{
+							"name": "Select2"
+						},
+						{
+							"name": "Join1"
+						},
+						{
+							"name": "DerivedColumn3"
+						},
+						{
+							"name": "AlterRow1"
+						}
+					],
+					"script": "source(output(\n\t\tPersonID as string,\n\t\tLastName as string,\n\t\tFirstName as string,\n\t\tLastUpdatedDt as date\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tignoreNoFilesFound: false) ~> source1\nsource(output(\n\t\tPersonID as string,\n\t\tLastName as string,\n\t\tFirstName as string,\n\t\tSNo as integer,\n\t\tLastUpdatedDt as date,\n\t\tIsActive as integer\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tignoreNoFilesFound: false,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tformat: 'table') ~> source2\nsource(output(\n\t\tMaxSNo as integer\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tignoreNoFilesFound: false,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tquery: 'Select Max(SNo) MaxSNo from [dbo].[Persons]',\n\tformat: 'query') ~> source3\nJoin1, Select2 lookup(PersonID == PersonID_Sink,\n\tmultiple: false,\n\tpickup: 'any',\n\tbroadcast: 'auto')~> Lookup1\nLookup1 split(isNull(PersonID_Sink),\n\tdisjoint: false) ~> ConditionalSplit1@(New, Update)\nConditionalSplit1@New derive(IsActive_Sink = 1) ~> DerivedColumn1\nSelect1 keyGenerate(output(SKey as long),\n\tstartAt: 1L) ~> SurrogateKey1\nDerivedColumn1 select(mapColumn(\n\t\tPersonID,\n\t\tLastName,\n\t\tFirstName,\n\t\tLastUpdatedDt,\n\t\tMaxSNo,\n\t\tPersonID_Sink,\n\t\tLastName_Sink,\n\t\tFirstName_Sink,\n\t\tSNo_Sink,\n\t\tLastUpdatedDt_Sink,\n\t\tIsActive_Sink\n\t),\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true) ~> Select1\nConditionalSplit1@Update derive(IsActive_Sink = 1) ~> DerivedColumn2\nConditionalSplit1@Update filter(SNo_Sink <= MaxSNo) ~> Filter1\nsource2 select(mapColumn(\n\t\tPersonID_Sink = PersonID,\n\t\tLastName_Sink = LastName,\n\t\tFirstName_Sink = FirstName,\n\t\tSNo_Sink = SNo,\n\t\tLastUpdatedDt_Sink = LastUpdatedDt,\n\t\tIsActive_Sink = IsActive\n\t),\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true) ~> Select2\nsource1, source3 join(true(),\n\tjoinType:'cross',\n\tbroadcast: 'auto')~> Join1\nFilter1 derive(IsActive_Sink = 0) ~> DerivedColumn3\nDerivedColumn3 alterRow(updateIf(SNo_Sink<=MaxSNo)) ~> AlterRow1\nSurrogateKey1 sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:true,\n\tupdateable:false,\n\tupsertable:false,\n\tformat: 'table',\n\tmapColumn(\n\t\teach(match(type=='string')),\n\t\teach(match(type=='date')),\n\t\teach(match(name=='IsActive_Sink'),\n\t\t\t'IsActive' = $$),\n\t\teach(match(name=='SKey'),\n\t\t\t'SNo' = $$)\n\t),\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\terrorHandlingOption: 'stopOnFirstError') ~> sink1\nDerivedColumn2 sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:true,\n\tupdateable:false,\n\tupsertable:false,\n\tformat: 'table',\n\tmapColumn(\n\t\tPersonID,\n\t\tLastName,\n\t\tFirstName,\n\t\tLastUpdatedDt,\n\t\tMaxSNo,\n\t\tPersonID_Sink,\n\t\tLastName_Sink,\n\t\tFirstName_Sink,\n\t\tSNo_Sink,\n\t\tLastUpdatedDt_Sink,\n\t\tIsActive_Sink\n\t),\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\terrorHandlingOption: 'stopOnFirstError') ~> sink2\nAlterRow1 sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:true,\n\tupdateable:true,\n\tupsertable:false,\n\tkeys:['PersonID_Sink'],\n\tformat: 'table',\n\tmapColumn(\n\t\tPersonID,\n\t\tLastName,\n\t\tFirstName,\n\t\tLastUpdatedDt,\n\t\tMaxSNo,\n\t\tPersonID_Sink,\n\t\tLastName_Sink,\n\t\tFirstName_Sink,\n\t\tSNo_Sink,\n\t\tLastUpdatedDt_Sink,\n\t\tIsActive_Sink\n\t),\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\terrorHandlingOption: 'stopOnFirstError') ~> sink3"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/DS_ADLTxt')]",
+				"[concat(variables('factoryId'), '/datasets/DS_AzureSQLDB')]",
+				"[concat(variables('factoryId'), '/datasets/DS_AzureSQLDB_2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dataflow3')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "DS_ADLTxt",
+								"type": "DatasetReference"
+							},
+							"name": "source1"
+						},
+						{
+							"dataset": {
+								"referenceName": "DS_AzureSQLDB",
+								"type": "DatasetReference"
+							},
+							"name": "source2"
+						},
+						{
+							"dataset": {
+								"referenceName": "DS_AzureSQLDB_2",
+								"type": "DatasetReference"
+							},
+							"name": "source3"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "DS_AzureSQLDB",
+								"type": "DatasetReference"
+							},
+							"name": "sink1"
+						},
+						{
+							"dataset": {
+								"referenceName": "DS_AzureSQLDB",
+								"type": "DatasetReference"
+							},
+							"name": "sink2"
+						},
+						{
+							"dataset": {
+								"referenceName": "DS_AzureSQLDB",
+								"type": "DatasetReference"
+							},
+							"name": "sink3"
+						}
+					],
+					"transformations": [
+						{
+							"name": "Join1"
+						},
+						{
+							"name": "Lookup1"
+						},
+						{
+							"name": "ConditionalSplit1"
+						},
+						{
+							"name": "DerivedColumn1"
+						},
+						{
+							"name": "SurrogateKey1"
+						},
+						{
+							"name": "DerivedColumn2"
+						},
+						{
+							"name": "SurrogateKey2"
+						},
+						{
+							"name": "DerivedColumn3"
+						},
+						{
+							"name": "SurrogateKey3"
+						},
+						{
+							"name": "DerivedColumn4"
+						},
+						{
+							"name": "Filter1"
+						},
+						{
+							"name": "AlterRow1"
+						}
+					],
+					"script": "source(output(\n\t\tPerson_ID as string,\n\t\tLast_Name as string,\n\t\tFirst_Name as string,\n\t\tLastUpdated_Date as date\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tignoreNoFilesFound: false) ~> source1\nsource(output(\n\t\tPersonID as string,\n\t\tLastName as string,\n\t\tFirstName as string,\n\t\tLastUpdatedDt as string\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tignoreNoFilesFound: false,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tformat: 'table') ~> source2\nsource(output(\n\t\tMaxSNo as integer\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tignoreNoFilesFound: false,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tquery: 'Select Max(SNo) MaxSNo from [dbo].[Persons]',\n\tformat: 'query') ~> source3\nsource1, source3 join(true(),\n\tjoinType:'cross',\n\tbroadcast: 'auto')~> Join1\nJoin1, source2 lookup(Person_ID == PersonID,\n\tmultiple: false,\n\tpickup: 'any',\n\tbroadcast: 'auto')~> Lookup1\nLookup1 split(isNull(PersonID),\n\tdisjoint: false) ~> ConditionalSplit1@(Insert, Update)\nConditionalSplit1@Insert derive(IsActive = 1) ~> DerivedColumn1\nDerivedColumn1 keyGenerate(output(SKey as long),\n\tstartAt: 1L) ~> SurrogateKey1\nConditionalSplit1@Update derive(IsActive1 = 1) ~> DerivedColumn2\nDerivedColumn2 keyGenerate(output(SKey1 as long),\n\tstartAt: 1L) ~> SurrogateKey2\nSurrogateKey2 derive(Skey_Insert = MaxSNo+SKey1) ~> DerivedColumn3\nConditionalSplit1@Update keyGenerate(output(SKey2 as long),\n\tstartAt: 1L) ~> SurrogateKey3\nSurrogateKey3 derive(IsActive2 = 0,\n\t\tSkey_Update = MaxSNo+SKey2) ~> DerivedColumn4\nDerivedColumn4 filter(Skey_Update <=MaxSNo) ~> Filter1\nFilter1 alterRow(updateIf(Skey_Update<=MaxSNo)) ~> AlterRow1\nSurrogateKey1 sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:true,\n\tupdateable:false,\n\tupsertable:false,\n\tformat: 'table',\n\tmapColumn(\n\t\tPersonID = Person_ID,\n\t\tLastName = Last_Name,\n\t\tFirstName = First_Name,\n\t\tLastUpdatedDt = LastUpdated_Date,\n\t\tIsActive,\n\t\tSNo = SKey\n\t),\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\terrorHandlingOption: 'stopOnFirstError') ~> sink1\nDerivedColumn3 sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:true,\n\tupdateable:false,\n\tupsertable:false,\n\tformat: 'table',\n\tmapColumn(\n\t\tPersonID = Person_ID,\n\t\tLastName = Last_Name,\n\t\tFirstName = First_Name,\n\t\tLastUpdatedDt = LastUpdated_Date,\n\t\tIsActive_1 = IsActive1,\n\t\tSNo = Skey_Insert\n\t),\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\terrorHandlingOption: 'stopOnFirstError') ~> sink2\nAlterRow1 sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:false,\n\tupdateable:true,\n\tupsertable:false,\n\tkeys:['PersonID'],\n\tformat: 'table',\n\tmapColumn(\n\t\tPersonID = Person_ID,\n\t\tLastName = Last_Name,\n\t\tFirstName = First_Name,\n\t\tLastUpdatedDt = LastUpdated_Date,\n\t\tIsActive2,\n\t\tSNo = Skey_Update\n\t),\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\terrorHandlingOption: 'stopOnFirstError') ~> sink3"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/DS_ADLTxt')]",
+				"[concat(variables('factoryId'), '/datasets/DS_AzureSQLDB')]",
+				"[concat(variables('factoryId'), '/datasets/DS_AzureSQLDB_2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pipeline1_1')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Copy data1",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "DelimitedTextSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							},
+							"sink": {
+								"type": "AzureSqlSink"
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_ADLTxt",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_AzureSQLDB",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					}
+				],
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/DS_ADLTxt')]",
+				"[concat(variables('factoryId'), '/datasets/DS_AzureSQLDB')]"
+			]
+		}
+	]
+}
